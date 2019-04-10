@@ -192,6 +192,11 @@ class ES(object):
                  raise_on_bulk_item_failure=False,
                  document_object_field=None,
                  bulker_class=ListBulker,
+                 use_ssl=False,
+                 verify_certs=False,
+                 ca_certs=None,
+                 client_cert=None,
+                 client_key=None,
                  cert_reqs='CERT_OPTIONAL'):
         """
         Init a es object.
@@ -234,6 +239,11 @@ class ES(object):
         self.debug_dump = False
         self.cluster_name = "undefined"
         self.basic_auth = basic_auth
+        self.use_ssl = use_ssl
+        self.verify_certs = verify_certs
+        self.ca_certs = ca_certs
+        self.client_cert = client_cert
+        self.client_key = client_key
         self.connection = None
         self._mappings = None
         self.document_object_field = document_object_field
@@ -362,7 +372,10 @@ class ES(object):
         if server.scheme in ["http", "https"]:
             self.connection = http_connect(
                 [server for server in self.servers if server.scheme in ["http", "https"]],
-                timeout=self.timeout, basic_auth=self.basic_auth, max_retries=self.max_retries, retry_time=self.retry_time)
+                timeout=self.timeout, basic_auth=self.basic_auth,
+                use_ssl=self.use_ssl, verify_certs=self.verify_certs,
+                ca_certs=self.ca_certs, client_cert=self.client_cert, client_key=self.client_key,
+                max_retries=self.max_retries, retry_time=self.retry_time)
             return
         elif server.scheme == "thrift":
             self.connection = thrift_connect(

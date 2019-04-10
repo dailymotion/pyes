@@ -68,7 +68,8 @@ class Connection(object):
     """
 
     def __init__(self, servers=None, retry_time=60, max_retries=3, timeout=None,
-                 basic_auth=None):
+                 basic_auth=None, use_ssl=False, verify_certs=False,
+                 ca_certs=None, client_cert=None, client_key=None):
         if servers is None:
             servers = [DEFAULT_SERVER]
         self._active_servers = [server.geturl() for server in servers]
@@ -76,10 +77,17 @@ class Connection(object):
         self._retry_time = retry_time
         self._max_retries = max_retries
         self._timeout = timeout
+        self._use_ssl = use_ssl
+        self._verify_certs = verify_certs
+        self._ca_certs = ca_certs
+        self._client_cert = client_cert
+        self._client_key = client_key
         if basic_auth:
             self._headers = urllib3.make_headers(basic_auth="%(username)s:%(password)s" % basic_auth)
         else:
             self._headers = {}
+        if use_ssl and verify_certs:
+            self.CERT_REQS = 'REQUIRED'
         self._lock = threading.RLock()
         self._local = threading.local()
 
@@ -102,9 +110,25 @@ class Connection(object):
                 self._local.server = server = self._get_server()
             try:
                 parse_result = urlparse(server)
-                conn = get_pool().connection_from_host(parse_result.hostname,
-                                                         parse_result.port,
-                                                         parse_result.scheme)
+                if not self._use_ssl:
+                    conn = get_pool().connection_from_host(
+                        host=parse_result.hostname,
+                        port=parse_result.port,
+                        scheme=parse_result.scheme
+                    )
+                else:
+                    pool_kwargs = {
+                        'cert_file': self._client_cert,
+                        'key_file': self._client_key,
+                        'ca_certs': self._ca_certs,
+                        'cert_reqs': self.CERT_REQS
+                    }
+                    conn = get_pool().connection_from_host(
+                        host=parse_result.hostname,
+                        port=parse_result.port,
+                        scheme=parse_result.scheme,
+                        pool_kwargs=pool_kwargs
+                    )
                 kwargs = dict(
                     method=Method._VALUES_TO_NAMES[request.method],
                     url=parse_result.path + url,
